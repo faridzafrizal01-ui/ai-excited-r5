@@ -1,33 +1,48 @@
-// Moon Loop — entry for make.fun ai-excited-01.
+// Moon Loop — make.fun ai-excited-01 entry (r8 rebuild).
 //
-// The artwork for this entry is the file entry.png sitting next to this
-// program: a roller-coaster loop threaded through a giant golden moon.
-// This program does exactly one job — it places a byte-for-byte copy of
-// that artwork at $MAKEFUN_OUTPUT_DIR/entry.png so the grader can see it.
+// What this program does:
+//   Copies the artwork file entry.png (the "Moon Loop" painting sitting in
+//   this same directory) into the grader's output directory, as
+//   $MAKEFUN_OUTPUT_DIR/entry.png. The output directory defaults to
+//   /output when MAKEFUN_OUTPUT_DIR is not set.
 //
-// It never edits, re-encodes, or re-compresses the image, so running it
-// twice always produces the identical file. Local check:
-//   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+// What it deliberately does NOT do:
+//   It never opens, decodes, resizes, or re-encodes the image. The file is
+//   copied byte for byte, so the output of run N is always identical to the
+//   output of run N+1 — the grader can re-run this program and get the
+//   exact same bytes every time.
+//
+// Local smoke test:
+//   rm -rf out out2
+//   mkdir -p out out2
+//   MAKEFUN_OUTPUT_DIR=out  node main.ts
+//   MAKEFUN_OUTPUT_DIR=out2 node main.ts
+//   sha256sum out/entry.png out2/entry.png   # the two hashes must match
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, statSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const sourceDir = dirname(fileURLToPath(import.meta.url));
-const sourcePath = resolve(sourceDir, "entry.png");
+const here = dirname(fileURLToPath(import.meta.url));
+const artwork = resolve(here, "entry.png");
 
-if (!existsSync(sourcePath)) {
-  throw new Error(`entry.png is missing next to main.ts: ${sourcePath}`);
+if (!existsSync(artwork)) {
+  throw new Error(`artwork not found next to main.ts: ${artwork}`);
 }
 
-const targetDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
-const targetPath = resolve(targetDir, "entry.png");
+const configuredDir = (process.env.MAKEFUN_OUTPUT_DIR ?? "").trim();
+const outDir = resolve(configuredDir === "" ? "/output" : configuredDir);
+const outFile = join(outDir, "entry.png");
 
-mkdirSync(targetDir, { recursive: true });
-const bytes = readFileSync(sourcePath);
-writeFileSync(targetPath, bytes);
+mkdirSync(outDir, { recursive: true });
+copyFileSync(artwork, outFile);
 
-// Guard against a truncated write: the copy must carry every byte.
-if (readFileSync(targetPath).length !== bytes.length) {
-  throw new Error(`entry.png copy is incomplete: ${targetPath}`);
+// Cheap integrity check: the delivered copy must be the same size as the
+// source, otherwise something went wrong mid-write and we fail loudly.
+const sourceSize = statSync(artwork).size;
+const copiedSize = statSync(outFile).size;
+if (sourceSize !== copiedSize) {
+  throw new Error(
+    `entry.png copy is incomplete: wrote ${copiedSize} of ${sourceSize} bytes to ${outFile}`,
+  );
 }
