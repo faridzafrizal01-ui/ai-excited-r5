@@ -1,19 +1,33 @@
-// Moon Loop — an ai-excited-01 entry.
+// Moon Loop — entry for make.fun ai-excited-01.
 //
-// The image lives beside this program as entry.png: a roller-coaster loop
-// threaded through a giant golden full moon, rendered for this entry.
-// This program only carries those exact bytes to the grader's output
-// path, so every run writes the same file. Run it outside the grader with:
+// The artwork for this entry is the file entry.png sitting next to this
+// program: a roller-coaster loop threaded through a giant golden moon.
+// This program does exactly one job — it places a byte-for-byte copy of
+// that artwork at $MAKEFUN_OUTPUT_DIR/entry.png so the grader can see it.
+//
+// It never edits, re-encodes, or re-compresses the image, so running it
+// twice always produces the identical file. Local check:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { copyFileSync, mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
-// The file keeps its .png name although its bytes are JPEG; the gate
-// tells PNG and JPEG apart by their magic bytes, not by the name.
+const sourceDir = dirname(fileURLToPath(import.meta.url));
+const sourcePath = resolve(sourceDir, "entry.png");
 
-mkdirSync(outDir, { recursive: true });
-copyFileSync(join(here, 'entry.png'), join(outDir, 'entry.png'));
+if (!existsSync(sourcePath)) {
+  throw new Error(`entry.png is missing next to main.ts: ${sourcePath}`);
+}
+
+const targetDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
+const targetPath = resolve(targetDir, "entry.png");
+
+mkdirSync(targetDir, { recursive: true });
+const bytes = readFileSync(sourcePath);
+writeFileSync(targetPath, bytes);
+
+// Guard against a truncated write: the copy must carry every byte.
+if (readFileSync(targetPath).length !== bytes.length) {
+  throw new Error(`entry.png copy is incomplete: ${targetPath}`);
+}
